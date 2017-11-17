@@ -1,7 +1,7 @@
 # -*- coding: utf-8-*-
 # 本地音乐播放器
+# xizirumeng
 import logging
-import json
 import sys
 import time
 import os
@@ -15,71 +15,111 @@ sys.setdefaultencoding('utf8')
 # Standard module stuff
 WORDS = ["YINYUE"]
 SLUG = "music"
+# 音乐文件
+files = []
 
-class MusicThread (threading.Thread):
-    def __init__(self,url,files,mic):
+
+class MusicThread(threading.Thread):
+    def __init__(self, files, mic, unlimited):
         threading.Thread.__init__(self)
-        self.url = url
         self.files = files
         self.mic = mic
+        # 默认无限循环模式
+        self.unlimited = unlimited
+        # 单曲循环
+        self.single = False
+        # 播放状态
         self.status = True
+
+        self.current = -1
         self.size = len(files)
-        self.index = random.randint(0,self.size-1)
+        self.index = random.randint(0, self.size - 1)
+
     def run(self):
-        index=self.index
+        self.current = self.index
         self.play()
         while self.status:
             time.sleep(1)
-            if index != self.index:
-                index=self.index
+            if self.current != self.index:
+                self.current = self.index
                 self.play()
+
+    # 播放
     def play(self):
         try:
             self.clean()
-            self.mic.say('即将播放'+delsuffix(self.files[self.index]))
+            self.mic.say('即将播放' + (os.path.splitext(self.files[self.index]))[0])
             time.sleep(1)
-            subprocess.call('play -G -q '+(self.url+'/'+self.files[self.index].replace(' ','\ ')),shell = True)
-        except Exception,e:
+            subprocess.call('play -G -q ' + (self.files[self.index].replace(' ', '\ ')), shell=True)
+        except Exception, e:
             print e
         self.next()
+
+    # 下一首
     def next(self):
+        # 单曲播放
+        if self.single:
+            self.current = -1
+            return
         self.clean()
-        # 下一首
         if self.index < self.size - 1:
             self.index += 1
-        else:
+        elif self.unlimited:
             self.index = 0
+        else:
+            self.stop()
+
+    # 上一首
     def previous(self):
         self.clean()
-        # 上一首
         if self.index <= 0:
             self.index = self.size - 1
         else:
             self.index -= 1
+
+    # 停止播放
     def stop(self):
         self.status = False
         self.clean()
+
+    # 暂停播放
     def pause(self):
-        subprocess.call('pkill -STOP play',shell = True)
+        subprocess.call('pkill -STOP play', shell=True)
+
+    # 继续播放
     def proceed(self):
-        subprocess.call('pkill -CONT play',shell = True)
+        subprocess.call('pkill -CONT play', shell=True)
+
+    # 结束当前播放
     def clean(self):
-        process = subprocess.Popen('pkill -9 play',shell=True)
+        process = subprocess.Popen('pkill -9 play', shell=True)
         process.wait()
-# 去除后缀
-def delsuffix(name):
-    return name.replace('.mp3','').replace('.wav','')
+
+    # 用于控制循环模式
+    def setunlimited(self, bol):
+        self.unlimited = bol
+        self.single = False
+
+    # 用于控制单曲循环
+    def setsingle(self, bol):
+        self.single = bol
+
 
 # 遍历文件
-def getFile(url):
-    temp=os.listdir(url)
-    files=[]
+def getfile(url):
+    temp = os.listdir(url)
     for f in temp:
+        # 排除隐藏文件
         if f[0] == '.':
             pass
-        elif os.path.isfile(url+'/'+f):
-            files.append(f)
-    return files
+        elif os.path.isfile(url + '/' + f):
+            # 常见音频文件
+            hz = os.path.splitext(url + '/' + f)[1].lower();
+            if hz == '.wav' or hz == '.mp3' or hz == '.wma' or hz == '.ogg' or hz == '.midi' or hz == '.aac' or hz == '.flac' or hz == '.ape':
+                files.append(url + '/' + f)
+        elif os.path.isdir(url + '/' + f):  # 递归查找
+            getfile(url + '/' + f)
+
 
 def handle(text, mic, profile, wxbot=None):
     logger = logging.getLogger(__name__)
@@ -87,15 +127,17 @@ def handle(text, mic, profile, wxbot=None):
         if 'robot_name' in profile:
             persona = profile['robot_name']
         if SLUG not in profile or \
-                not profile[SLUG].has_key('url'):
-                mic.say('音乐插件配置有误,启动失败')
-                time.sleep(1)
-                return
-        url=profile[SLUG]['url']
-        files=getFile(url)
-        length=len(files)
-        mic.say('一共扫描到'+str(length)+'个文件')
-        music=MusicThread(url,files,mic)
+                not profile[SLUG].has_key('url') or \
+                not profile[SLUG].has_key('unlimited'):
+            mic.say('音乐插件配置有误,启动失败')
+            time.sleep(1)
+            return
+        url = profile[SLUG]['url']
+        unlimited = profile[SLUG]['unlimited']
+        getfile(url)
+        length = len(files)
+        mic.say('一共扫描到' + str(length) + '个文件')
+        music = MusicThread(files, mic, unlimited)
         music.start()
         while True:
             threshold, transcribed = mic.passiveListen(persona)
@@ -103,14 +145,14 @@ def handle(text, mic, profile, wxbot=None):
                 continue
             music.pause()
             inputs = mic.activeListen()
-            if inputs and any(ext in inputs for ext in [u'结束',u'退出',u'停止']):
+            if inputs and any(ext in inputs for ext in [u'结束', u'退出', u'停止', u'关闭']):
                 music.stop()
                 mic.say('结束播放')
                 return
-            elif inputs and any(ext in inputs for ext in [u'上一首',u'上一']):
+            elif inputs and any(ext in inputs for ext in [u'上一首', u'上一']):
                 mic.say('上一首')
                 music.previous()
-            elif inputs and any(ext in inputs for ext in [u'下一首',u'下一']):
+            elif inputs and any(ext in inputs for ext in [u'下一首', u'下一']):
                 mic.say('下一首')
                 music.next()
             elif inputs and any(ext in inputs for ext in [u'暂停']):
@@ -119,12 +161,27 @@ def handle(text, mic, profile, wxbot=None):
             elif inputs and any(ext in inputs for ext in [u'继续']):
                 mic.say('继续播放')
                 music.proceed()
+            elif inputs and any(ext in inputs for ext in [u'循环模式', u'循环']):
+                mic.say('请设置状态')
+                time.sleep(1)
+                inputs = mic.activeListen()
+                if inputs and any(ext in inputs for ext in [u'结束', u'退出', u'停止', u'关闭']):
+                    music.setunlimited(False)
+                    mic.say('已关闭循环模式')
+                elif inputs and any(ext in inputs for ext in [u'开启', u'打开']):
+                    music.setunlimited(True)
+                    mic.say('已开启无限循环模式')
+                elif inputs and any(ext in inputs for ext in [u'单一', u'单曲', u'无脑']):
+                    music.setsingle(True)
+                    mic.say('已开启单曲无限循环')
             else:
                 mic.say('说什么?')
                 music.proceed()
     except Exception, e:
         logger.error(e)
-        threshold, transcribed = (None,None)
+        threshold, transcribed = (None, None)
         mic.say('出了点小故障...')
+
+
 def isValid(text):
-    return any(word in text for word in [u"听歌", u"音乐",u'播放音乐',u'来一首',u'放一首'])
+    return any(word in text for word in [u"听歌", u"音乐", u'播放音乐', u'来一首', u'放一首'])
