@@ -24,13 +24,13 @@ class MusicThread(threading.Thread):
         threading.Thread.__init__(self)
         self.files = files
         self.mic = mic
-        # 默认无限循环模式
         self.unlimited = unlimited
         # 单曲循环
         self.single = False
         # 播放状态
         self.status = True
-
+        # 随机播放
+        self.random = False
         self.current = -1
         self.size = len(files)
         self.index = random.randint(0, self.size - 1)
@@ -48,21 +48,25 @@ class MusicThread(threading.Thread):
     def play(self):
         try:
             self.clean()
-            self.mic.say('即将播放' + (os.path.splitext(self.files[self.index]))[0])
+            if not self.single:
+                self.mic.say('即将播放' + (os.path.splitext(self.files[self.index]))[0])
             time.sleep(1)
-            subprocess.call('play -G -q ' + (self.files[self.index].replace(' ', '\ ')), shell=True)
+            subprocess.call('play -G -q ' + self.files[self.index], shell=True)
         except Exception, e:
             print e
-        self.next()
+        self.next(True)
 
     # 下一首
-    def next(self):
-        # 单曲播放
-        if self.single:
-            self.current = -1
-            return
+    def next(self, bol):
+        if bol:
+            # 单曲播放
+            if self.single:
+                self.current = -1
+                return
         self.clean()
-        if self.index < self.size - 1:
+        if self.random:
+            self.index = random.randint(0, self.size - 1)
+        elif self.index < self.size - 1:
             self.index += 1
         elif self.unlimited:
             self.index = 0
@@ -96,13 +100,24 @@ class MusicThread(threading.Thread):
         process.wait()
 
     # 用于控制循环模式
-    def setunlimited(self, bol):
-        self.unlimited = bol
+    def setunlimited(self):
+        self.unlimited = True
         self.single = False
+        self.random = False
+        self.proceed()
 
     # 用于控制单曲循环
-    def setsingle(self, bol):
-        self.single = bol
+    def setsingle(self):
+        self.single = True
+        self.random = False
+        self.unlimited = False
+        self.proceed()
+
+    def setrandom(self):
+        self.single = False
+        self.unlimited = False
+        self.random = True
+        self.proceed()
 
 
 # 遍历文件
@@ -116,7 +131,9 @@ def getfile(url):
             # 常见音频文件
             hz = os.path.splitext(url + '/' + f)[1].lower();
             if hz == '.wav' or hz == '.mp3' or hz == '.wma' or hz == '.ogg' or hz == '.midi' or hz == '.aac' or hz == '.flac' or hz == '.ape':
-                files.append(url + '/' + f)
+                files.append(
+                    url + '/' + f.replace(' ', '\ ').replace('(', '\(').replace(')', '\)').replace('#', '\#').replace(
+                        '-', '\-').replace('$', '\$').replace('&', '\&').replace('?', '\?'))
         elif os.path.isdir(url + '/' + f):  # 递归查找
             getfile(url + '/' + f)
 
@@ -154,26 +171,22 @@ def handle(text, mic, profile, wxbot=None):
                 music.previous()
             elif inputs and any(ext in inputs for ext in [u'下一首', u'下一']):
                 mic.say('下一首')
-                music.next()
+                music.next(False)
             elif inputs and any(ext in inputs for ext in [u'暂停']):
                 mic.say('暂停播放')
                 music.pause()
             elif inputs and any(ext in inputs for ext in [u'继续']):
                 mic.say('继续播放')
                 music.proceed()
-            elif inputs and any(ext in inputs for ext in [u'循环模式', u'循环']):
-                mic.say('请设置状态')
-                time.sleep(1)
-                inputs = mic.activeListen()
-                if inputs and any(ext in inputs for ext in [u'结束', u'退出', u'停止', u'关闭']):
-                    music.setunlimited(False)
-                    mic.say('已关闭循环模式')
-                elif inputs and any(ext in inputs for ext in [u'开启', u'打开']):
-                    music.setunlimited(True)
-                    mic.say('已开启无限循环模式')
-                elif inputs and any(ext in inputs for ext in [u'单一', u'单曲', u'无脑']):
-                    music.setsingle(True)
-                    mic.say('已开启单曲无限循环')
+            elif inputs and any(ext in inputs for ext in [u'列表循环', u'列表']):
+                mic.say('列表循环模式')
+                music.setunlimited()
+            elif inputs and any(ext in inputs for ext in [u'单曲循环', u'单曲']):
+                mic.say('无脑单曲模式')
+                music.setsingle()
+            elif inputs and any(ext in inputs for ext in [u'随机播放', u'随机模式', u'随机']):
+                mic.say('随机播放')
+                music.setrandom()
             else:
                 mic.say('说什么?')
                 music.proceed()
