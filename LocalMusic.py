@@ -196,7 +196,5 @@ def handle(text, mic, profile, wxbot=None):
         logger.error(e)
         threshold, transcribed = (None, None)
         mic.say('出了点小故障...')
-
-
 def isValid(text):
-    return any(word in text for word in [u"听歌", u"音乐", u'播放音乐', u'来一首', u'放一首'])
+    return any(word in text for word in [u"歌", u"音乐", u'播放音乐', u'嗨起来'])
