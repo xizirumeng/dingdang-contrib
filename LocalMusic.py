@@ -49,8 +49,8 @@ class MusicThread(threading.Thread):
         try:
             self.clean()
             if not self.single:
-                temp=os.path.splitext(self.files[self.index])[0].split('/')
-                self.mic.say('即将播放' + temp[len(temp)-1])
+                temp = os.path.splitext(self.files[self.index])[0].split('/')
+                self.mic.say('即将播放' + temp[len(temp) - 1])
             time.sleep(1)
             subprocess.call('play -G -q ' + self.files[self.index], shell=True)
         except Exception, e:
@@ -58,7 +58,7 @@ class MusicThread(threading.Thread):
         self.next(True)
 
     # 下一首
-    def next(self,bol):
+    def next(self, bol):
         if bol:
             # 单曲播放
             if self.single:
@@ -66,7 +66,7 @@ class MusicThread(threading.Thread):
                 return
         self.clean()
         if self.random:
-            self.index = random.randint(0,self.size - 1)
+            self.index = random.randint(0, self.size - 1)
         elif self.index < self.size - 1:
             self.index += 1
         elif self.unlimited:
@@ -113,11 +113,13 @@ class MusicThread(threading.Thread):
         self.random = False
         self.unlimited = False
         self.proceed()
+
     def setrandom(self):
         self.single = False
         self.unlimited = False
         self.random = True
         self.proceed()
+
 
 # 遍历文件
 def getfile(url):
@@ -130,7 +132,10 @@ def getfile(url):
             # 常见音频文件
             hz = os.path.splitext(url + '/' + f)[1].lower();
             if hz == '.wav' or hz == '.mp3' or hz == '.wma' or hz == '.ogg' or hz == '.midi' or hz == '.aac' or hz == '.flac' or hz == '.ape':
-                files.append(url + '/' + f.replace(' ','\ ').replace('(','\(').replace(')','\)').replace('#','\#').replace('-','\-').replace('$','\$').replace('&','\&').replace('?','\?'))
+                files.append(
+                    url + '/' + f.replace(' ', '\ ').replace('(', '\(').replace(')', '\)').replace('#', '\#').replace(
+                        '-', '\-').replace('$', '\$').replace('&', '\&').replace('?', '\?').replace("'", "\'").replace(
+                        ',', '\,'))
         elif os.path.isdir(url + '/' + f):  # 递归查找
             getfile(url + '/' + f)
 
@@ -175,13 +180,13 @@ def handle(text, mic, profile, wxbot=None):
             elif inputs and any(ext in inputs for ext in [u'继续']):
                 mic.say('继续播放')
                 music.proceed()
-            elif inputs and any(ext in inputs for ext in [u'列表循环',u'列表']):
+            elif inputs and any(ext in inputs for ext in [u'列表循环', u'列表']):
                 mic.say('列表循环模式')
                 music.setunlimited()
-            elif inputs and any(ext in inputs for ext in [u'单曲循环',u'单曲']):
+            elif inputs and any(ext in inputs for ext in [u'单曲循环', u'单曲']):
                 mic.say('无脑单曲模式')
                 music.setsingle()
-            elif inputs and any(ext in inputs for ext in [u'随机播放', u'随机模式',u'随机']):
+            elif inputs and any(ext in inputs for ext in [u'随机播放', u'随机模式', u'随机']):
                 mic.say('随机播放')
                 music.setrandom()
             else:
