@@ -155,7 +155,7 @@ def handle(text, mic, profile, wxbot=None):
         unlimited = profile[SLUG]['unlimited']
         getfile(url)
         length = len(files)
-        mic.say('一共扫描到' + str(length) + '个文件')
+        mic.say('扫描到' + str(length) + '个音乐文件')
         music = MusicThread(files, mic, unlimited)
         music.start()
         while True:
