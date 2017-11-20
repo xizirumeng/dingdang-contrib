@@ -132,10 +132,7 @@ def getfile(url):
             # 常见音频文件
             hz = os.path.splitext(url + '/' + f)[1].lower();
             if hz == '.wav' or hz == '.mp3' or hz == '.wma' or hz == '.ogg' or hz == '.midi' or hz == '.aac' or hz == '.flac' or hz == '.ape':
-                files.append(
-                    url + '/' + f.replace(' ', '\ ').replace('(', '\(').replace(')', '\)').replace('#', '\#').replace(
-                        '-', '\-').replace('$', '\$').replace('&', '\&').replace('?', '\?').replace('\'', '\\\'').replace(
-                        ',', '\,'))
+                files.append(url + '/' + f.replace(' ', '\ ').replace('(', '\(').replace(')', '\)').replace('#', '\#').replace('-', '\-').replace('$', '\$').replace('&', '\&').replace('?', '\?').replace('\'', '\\\'').replace(',', '\,'))
         elif os.path.isdir(url + '/' + f):  # 递归查找
             getfile(url + '/' + f)
 
