@@ -16,7 +16,7 @@ def getCPUtemperature(logger, mic):
         tempFile = open("/sys/class/thermal/thermal_zone0/temp")
         res = tempFile.read()
         result = float(res) / 1000
-    except:
+    except Exception, e:
         logger.error(e)
         mic.say(u'抱歉，无法获取处理器温度')
     return result
